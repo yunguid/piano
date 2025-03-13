@@ -1,66 +1,96 @@
-# MIDI Piano Keyboard
+# Reactive Piano with AI Melody Generation
 
-A virtual piano keyboard built with React, TypeScript, and Tone.js that allows you to play music in your browser.
+An interactive piano application with AI-powered melody generation, offering a seamless experience for exploring and creating music.
 
 ## Features
 
-- Interactive piano keyboard with mouse and touch support
-- Keyboard controls for playing notes
-- Visual feedback when keys are pressed
-- High-quality synthesized piano sounds using Tone.js
-- Responsive design that works on desktop and mobile
-
-## Keyboard Controls
-
-The keyboard is mapped to your computer keyboard as follows:
-
-```
-| Piano Key | Keyboard Key |
-|-----------|--------------|
-| C         | A            |
-| C#        | W            |
-| D         | S            |
-| D#        | E            |
-| E         | D            |
-| F         | F            |
-| F#        | T            |
-| G         | G            |
-| G#        | Y            |
-| A         | H            |
-| A#        | U            |
-| B         | J            |
-```
+- Interactive piano that can be played with mouse or keyboard
+- AI-powered melody generation with various styles and complexity levels
+- Real-time visualization of melody and chord progressions
+- Comprehensive logging system for debugging and performance tracking
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm or yarn
+- Node.js 16 or higher
+- An OpenAI API key for melody generation
 
 ### Installation
-
-1. Clone this repository
-2. Install dependencies:
 
 ```bash
 npm install
 ```
 
-3. Start the development server:
+### Environment Setup
+
+Create a `.env` file in the root directory with your OpenAI API key:
+
+```
+VITE_OPENAI_API_KEY=your_openai_api_key_here
+VITE_ENABLE_REMOTE_LOGGING=false
+```
+
+### Development
+
+Standard development:
 
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+Development with enhanced terminal logging:
 
-## Technologies Used
+```bash
+npm run dev:logs
+```
 
-- React
-- TypeScript
-- Tone.js - Audio synthesis library
-- Vite - Build tool
+### Building for Production
+
+```bash
+npm run build
+```
+
+## Architecture
+
+The application is built with a clean, modular architecture:
+
+- **Services Layer**: Handles API interactions and melody generation
+  - `OpenAIService`: Manages communication with OpenAI API using the latest responses API
+  - `MelodyGenerator`: Defines music data structures and provides fallback melodies
+  - `EnhancedMelodyGenerator`: Handles detailed melody generation with style and complexity options
+
+- **Components**: React components for UI and music playback
+  - `EnhancedPiano`: Main piano component with visualization and playback
+  - `EnhancedMelodyControls`: UI for generating melodies with different styles
+
+- **Utils**: Supporting utilities
+  - `Logger`: Enhanced logging system with performance tracking
+  - `LoggerClient`: Client for remote logging (optional)
+
+## Usage
+
+1. Launch the application
+2. Choose between Keyboard mode (play piano directly) or Melody mode (generate AI melodies)
+3. In Melody mode, select a music style and complexity
+4. Click "Generate Melody" to create a new melody
+5. Use playback controls to play, pause, and record your melody
+
+## Logging System
+
+The application includes a comprehensive logging system that provides detailed insights into the application's behavior.
+
+### Log Levels
+
+- **DEBUG** - Detailed debugging information (only in development)
+- **INFO** - General information about application state
+- **WARN** - Warning messages 
+- **ERROR** - Error messages
+- **SUCCESS** - Success messages
+- **MUSIC** - Music generation events
+- **PIANO** - Piano interaction events
+- **API** - API interaction events
+- **PERF** - Performance timing events
 
 ## License
 
@@ -70,4 +100,4 @@ MIT
 
 - Tone.js for the audio synthesis capabilities
 - React and TypeScript for the frontend framework
-# piano
+- OpenAI for the melody generation capabilities

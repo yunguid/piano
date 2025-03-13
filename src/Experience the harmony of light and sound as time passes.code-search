@@ -1,0 +1,9 @@
+# Query: Experience the harmony of light and sound as time passes
+# ContextLines: 1
+
+1 result - 1 file
+
+src/App.tsx:
+  57          <footer className="app-footer">
+  58:           <p>yeuhhh</p>
+  59          </footer>
