@@ -1,0 +1,222 @@
+/* Piano key base styles */
+.piano-key {
+  position: relative;
+  height: 100%;
+  border-radius: 0 0 6px 6px;
+  transition: all 0.08s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 15px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  user-select: none;
+}
+
+/* White keys */
+.piano-key.white {
+  background: linear-gradient(to bottom, #fff 0%, #f8f8f8 60%, #eee 100%);
+  border-left: 1px solid #ddd;
+  border-bottom: 6px solid #ccc;
+  width: calc(100% / 14);
+  z-index: 1;
+  box-shadow: 
+    -1px 0 2px rgba(0, 0, 0, 0.1) inset,
+    0 -5px 2px rgba(255, 255, 255, 0.8) inset,
+    0 10px 2px rgba(0, 0, 0, 0.1) inset;
+  color: #777;
+}
+
+.piano-key.white:last-child {
+  border-right: 1px solid #ddd;
+}
+
+/* Black keys */
+.piano-key.black {
+  background: linear-gradient(to bottom, #333 0%, #222 20%, #000 100%);
+  width: calc(100% / 24);
+  height: 65%;
+  margin-left: calc(-100% / 48);
+  margin-right: calc(-100% / 48);
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 3px 5px rgba(0, 0, 0, 0.7),
+    0 -4px 1px rgba(255, 255, 255, 0.1) inset,
+    0 -2px 0 #000 inset;
+  border-radius: 0 0 5px 5px;
+}
+
+/* Key labels */
+.key-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  bottom: 15px;
+  width: 100%;
+}
+
+.key-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.keyboard-label {
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 3px 6px;
+  border-radius: 3px;
+  color: rgba(0, 0, 0, 0.5);
+  margin-top: 6px;
+}
+
+.piano-key.black .keyboard-label {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Active key states */
+.piano-key.active {
+  transform: translateY(3px) scale(0.98);
+  transition: transform 0.05s ease;
+}
+
+.piano-key.white.active {
+  background: linear-gradient(to bottom, #ffd56b 0%, #e2b854 40%, #d4a76a 100%);
+  border-bottom: 4px solid #b89051;
+  box-shadow: 
+    -1px 0 2px rgba(0, 0, 0, 0.2) inset,
+    0 -3px 2px rgba(255, 255, 255, 0.5) inset,
+    0 8px 2px rgba(0, 0, 0, 0.2) inset;
+}
+
+.piano-key.black.active {
+  background: linear-gradient(to bottom, #a66b2e 0%, #8c5e26 50%, #7a4e1a 100%);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 -2px 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+/* Articulation styles */
+.piano-key.staccato.white.active {
+  background: linear-gradient(to bottom, #ff7a7a 0%, #e26a6a 40%, #d45a5a 100%);
+  border-bottom: 4px solid #b85151;
+}
+
+.piano-key.staccato.black.active {
+  background: linear-gradient(to bottom, #a62e2e 0%, #8c2626 50%, #7a1a1a 100%);
+}
+
+.piano-key.legato.white.active {
+  background: linear-gradient(to bottom, #7affff 0%, #6ae2e2 40%, #5ad4d4 100%);
+  border-bottom: 4px solid #51b8b8;
+}
+
+.piano-key.legato.black.active {
+  background: linear-gradient(to bottom, #2ea6a6 0%, #268c8c 50%, #1a7a7a 100%);
+}
+
+.piano-key.accent.white.active {
+  background: linear-gradient(to bottom, #ff7aff 0%, #e26ae2 40%, #d45ad4 100%);
+  border-bottom: 4px solid #b851b8;
+}
+
+.piano-key.accent.black.active {
+  background: linear-gradient(to bottom, #a62ea6 0%, #8c268c 50%, #7a1a7a 100%);
+}
+
+.piano-key.tenuto.white.active {
+  background: linear-gradient(to bottom, #7aff7a 0%, #6ae26a 40%, #5ad45a 100%);
+  border-bottom: 4px solid #51b851;
+}
+
+.piano-key.tenuto.black.active {
+  background: linear-gradient(to bottom, #2ea62e 0%, #268c26 50%, #1a7a1a 100%);
+}
+
+.piano-key.marcato.white.active {
+  background: linear-gradient(to bottom, #ff9e2c 0%, #e28826 40%, #d47720 100%);
+  border-bottom: 4px solid #b86516;
+}
+
+.piano-key.marcato.black.active {
+  background: linear-gradient(to bottom, #c75200 0%, #a84600 50%, #903c00 100%);
+}
+
+/* Ripple effect */
+.ripple-effect {
+  position: absolute;
+  display: none;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 70%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.piano-key.active .ripple-effect {
+  display: block;
+  animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.5;
+  }
+  100% {
+    width: 200%;
+    height: 200%;
+    opacity: 0;
+  }
+}
+
+/* Subtle key hover effect */
+.piano-key.white:hover:not(.active) {
+  background: linear-gradient(to bottom, #ffffff, #f0f0f0);
+  transform: translateY(-2px);
+  box-shadow: 0 7px 15px rgba(0, 0, 0, 0.3);
+}
+
+.piano-key.black:hover:not(.active) {
+  background: linear-gradient(to bottom, #444, #333);
+  transform: translateY(-2px);
+  box-shadow: 0 7px 15px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .piano-key.white {
+    width: calc(100% / 10);
+  }
+  
+  .piano-key.black {
+    width: calc(100% / 20);
+    margin-left: calc(-100% / 40);
+    margin-right: calc(-100% / 40);
+  }
+}
+
+@media (max-width: 480px) {
+  .piano-key.white {
+    width: calc(100% / 7);
+  }
+  
+  .piano-key.black {
+    width: calc(100% / 14);
+    margin-left: calc(-100% / 28);
+    margin-right: calc(-100% / 28);
+  }
+}

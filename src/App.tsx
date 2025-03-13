@@ -7,6 +7,7 @@ import './App.css';
 import EnhancedPiano from './components/EnhancedPiano';
 import './components/EnhancedMelodyStyles.css';
 import Logger from './utils/Logger';
+import { initializeLogging, forceDebugConsoleVisible } from './utils/LogInitializer';
 
 // 3D Background component
 function PianoEnvironment() {
@@ -165,50 +166,31 @@ function CityScape() {
 
 // Main App component
 const App = () => {
-  // Log application startup information
+  // Initialize logging system
   useEffect(() => {
-    const appLogger = new Logger('App');
+    // Initialize the logger with detailed system information
+    initializeLogging();
     
-    // Display startup information
-    appLogger.perfStart('App Initialization');
+    // Force the debug console to be visible immediately
+    forceDebugConsoleVisible();
     
-    // System information
-    appLogger.info('Piano App Starting', {
-      version: '1.0.0',
-      environment: process.env.NODE_ENV,
-      platform: navigator.platform,
-      userAgent: navigator.userAgent
-    });
+    // Call it multiple times to ensure it's visible
+    const timeouts = [
+      setTimeout(() => forceDebugConsoleVisible(), 100),
+      setTimeout(() => forceDebugConsoleVisible(), 500),
+      setTimeout(() => forceDebugConsoleVisible(), 1000),
+      setTimeout(() => forceDebugConsoleVisible(), 2000),
+      setTimeout(() => forceDebugConsoleVisible(), 5000)
+    ];
     
-    // Audio compatibility check
-    if (window.AudioContext || (window as any).webkitAudioContext) {
-      appLogger.success('Audio Context API available');
-    } else {
-      appLogger.error('Audio Context API not available - app functionality will be limited');
-    }
+    // Also ensure it's visible periodically
+    const interval = setInterval(forceDebugConsoleVisible, 3000);
     
-    // Check WebAudio API compatibility
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (audioCtx) {
-        appLogger.success('WebAudio API initialized successfully', {
-          sampleRate: audioCtx.sampleRate,
-          state: audioCtx.state
-        });
-        audioCtx.close(); // Clean up the test context
-      }
-    } catch (e) {
-      appLogger.error('WebAudio API initialization failed', e);
-    }
-    
-    // MIDI support check
-    if ('requestMIDIAccess' in navigator) {
-      appLogger.info('Web MIDI API supported by browser');
-    } else {
-      appLogger.warn('Web MIDI API not supported by browser');
-    }
-    
-    appLogger.perfEnd('App Initialization');
+    // Clean up timeouts and interval
+    return () => {
+      timeouts.forEach(clearTimeout);
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -228,9 +210,16 @@ const App = () => {
       </div>
       
       <div className="content-container">
-        <div className="piano-app enhanced fade-in">
-          <h1 className="app-title"></h1>
-          <EnhancedPiano />
+        <div className="piano-debug-layout">
+          <div className="piano-container">
+            <div className="piano-app enhanced fade-in">
+              <h1 className="app-title"></h1>
+              <EnhancedPiano />
+            </div>
+          </div>
+          <div id="debug-console-container" className="debug-console-container">
+            {/* Debug console will be rendered here by Logger */}
+          </div>
         </div>
       </div>
     </div>

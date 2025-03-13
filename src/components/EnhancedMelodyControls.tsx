@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Melody, MusicStyle } from '../services/MelodyGenerator';
 import { EnhancedMelodyGenerator, MelodyComplexity } from '../services/EnhancedMelodyGenerator';
 import Logger from '../utils/Logger';
+import { SoundOption, AVAILABLE_INSTRUMENTS } from '../services/SoundLoader';
 import './EnhancedMelodyStyles.css';
 
 // Create a domain-specific logger
@@ -11,6 +12,21 @@ interface MelodyControlsProps {
   onGenerateMelody: (melody: Melody) => void;
   isGenerating: boolean;
   setIsGenerating: (isGenerating: boolean) => void;
+  availableSounds: SoundOption[];
+  selectedSound: string;
+  onSoundChange: (soundId: string) => void;
+  reverbWet: number;
+  setReverbWet: (value: number) => void;
+  reverbDecay: number;
+  setReverbDecay: (value: number) => void;
+  delayWet: number;
+  setDelayWet: (value: number) => void;
+  delayTime: number;
+  setDelayTime: (value: number) => void;
+  delayFeedback: number;
+  setDelayFeedback: (value: number) => void;
+  showEffectsPanel: boolean;
+  toggleEffectsPanel: () => void;
 }
 
 // Predefined moods for better music generation
@@ -22,7 +38,22 @@ const ARTICULATIONS = ["staccato", "legato", "accent", "tenuto", "marcato"];
 const EnhancedMelodyControls: React.FC<MelodyControlsProps> = ({
   onGenerateMelody,
   isGenerating,
-  setIsGenerating
+  setIsGenerating,
+  availableSounds,
+  selectedSound,
+  onSoundChange,
+  reverbWet,
+  setReverbWet,
+  reverbDecay,
+  setReverbDecay,
+  delayWet,
+  setDelayWet,
+  delayTime,
+  setDelayTime,
+  delayFeedback,
+  setDelayFeedback,
+  showEffectsPanel,
+  toggleEffectsPanel
 }) => {
   const [selectedStyle, setSelectedStyle] = useState<MusicStyle>("classical");
   const [selectedComplexity, setSelectedComplexity] = useState<MelodyComplexity>("medium");
@@ -31,6 +62,7 @@ const EnhancedMelodyControls: React.FC<MelodyControlsProps> = ({
   const [melodyLength, setMelodyLength] = useState<number>(8);
   const [useChords, setUseChords] = useState<boolean>(true);
   const [selectedArticulation, setSelectedArticulation] = useState<string>("legato");
+  const [activeEffectTab, setActiveEffectTab] = useState<'reverb' | 'delay'>('reverb');
   
   // Create a shared instance of the melody generator
   const melodyGenerator = new EnhancedMelodyGenerator();
@@ -85,6 +117,20 @@ const EnhancedMelodyControls: React.FC<MelodyControlsProps> = ({
     }
   };
   
+  // Group sounds by category for the dropdown
+  const groupedSounds = availableSounds.reduce((acc, sound) => {
+    if (!acc[sound.category]) {
+      acc[sound.category] = [];
+    }
+    acc[sound.category].push(sound);
+    return acc;
+  }, {} as Record<string, SoundOption[]>);
+  
+  // Format value for sliders
+  const formatValue = (value: number, unit: string, multiplier = 1, precision = 0) => {
+    return `${(value * multiplier).toFixed(precision)}${unit}`;
+  };
+  
   return (
     <div className="enhanced-melody-controls">
       <div className="melody-config">
@@ -106,6 +152,157 @@ const EnhancedMelodyControls: React.FC<MelodyControlsProps> = ({
             </select>
           </div>
         </div>
+        
+        {/* Sound Selection Dropdown */}
+        <div className="control-group">
+          <h3>Sound</h3>
+          <div className="sound-select">
+            <select
+              value={selectedSound}
+              onChange={(e) => onSoundChange(e.target.value)}
+              className="sound-dropdown"
+            >
+              {Object.entries(groupedSounds).map(([category, sounds]) => (
+                <optgroup key={category} label={category.charAt(0).toUpperCase() + category.slice(1)}>
+                  {sounds.map(sound => (
+                    <option key={sound.id} value={sound.id}>
+                      {sound.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        {/* Effects Toggle Button */}
+        <div className="control-group">
+          <div className="effects-toggle-container">
+            <button 
+              className={`effects-toggle ${showEffectsPanel ? 'active' : ''}`}
+              onClick={toggleEffectsPanel}
+            >
+              <span className="effects-toggle-text">Effects</span>
+              <span className="effects-toggle-icon">{showEffectsPanel ? '▼' : '▶'}</span>
+              {showEffectsPanel && <span className="effects-active-indicator"></span>}
+            </button>
+          </div>
+        </div>
+        
+        {/* Effects Panel */}
+        {showEffectsPanel && (
+          <div className={`effects-panel ${showEffectsPanel ? 'expanded' : 'collapsed'}`}>
+            <div className="effects-tabs">
+              <button 
+                className={`effect-tab ${activeEffectTab === 'reverb' ? 'active' : ''}`}
+                onClick={() => setActiveEffectTab('reverb')}
+              >
+                Reverb
+              </button>
+              <button 
+                className={`effect-tab ${activeEffectTab === 'delay' ? 'active' : ''}`}
+                onClick={() => setActiveEffectTab('delay')}
+              >
+                Delay
+              </button>
+            </div>
+            
+            <div className="effects-content">
+              {/* Reverb Controls */}
+              <div className={`effect-tab-content ${activeEffectTab === 'reverb' ? 'active' : ''}`}>
+                <div className="effect-visualization reverb-visualizer">
+                  <div className="reverb-bars" style={{ opacity: reverbWet, height: `${reverbDecay * 30}px` }}></div>
+                </div>
+                
+                <div className="effect-controls">
+                  <div className="effect-slider-group">
+                    <label className="effect-label">
+                      Amount: {formatValue(reverbWet, '%', 100, 0)}
+                    </label>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.01" 
+                      value={reverbWet}
+                      onChange={(e) => setReverbWet(parseFloat(e.target.value))}
+                      className="effect-slider"
+                    />
+                  </div>
+                  
+                  <div className="effect-slider-group">
+                    <label className="effect-label">
+                      Decay: {formatValue(reverbDecay, 's', 1, 1)}
+                    </label>
+                    <input 
+                      type="range" 
+                      min="0.1" 
+                      max="10" 
+                      step="0.1" 
+                      value={reverbDecay}
+                      onChange={(e) => setReverbDecay(parseFloat(e.target.value))}
+                      className="effect-slider"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Delay Controls */}
+              <div className={`effect-tab-content ${activeEffectTab === 'delay' ? 'active' : ''}`}>
+                <div className="effect-visualization delay-visualizer">
+                  <div className="delay-echo" style={{ opacity: delayWet, width: `${delayTime * 100}px` }}></div>
+                </div>
+                
+                <div className="effect-controls">
+                  <div className="effect-slider-group">
+                    <label className="effect-label">
+                      Amount: {formatValue(delayWet, '%', 100, 0)}
+                    </label>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.01" 
+                      value={delayWet}
+                      onChange={(e) => setDelayWet(parseFloat(e.target.value))}
+                      className="effect-slider"
+                    />
+                  </div>
+                  
+                  <div className="effect-slider-group">
+                    <label className="effect-label">
+                      Time: {formatValue(delayTime, 's', 1, 2)}
+                    </label>
+                    <input 
+                      type="range" 
+                      min="0.01" 
+                      max="1" 
+                      step="0.01" 
+                      value={delayTime}
+                      onChange={(e) => setDelayTime(parseFloat(e.target.value))}
+                      className="effect-slider"
+                    />
+                  </div>
+                  
+                  <div className="effect-slider-group">
+                    <label className="effect-label">
+                      Feedback: {formatValue(delayFeedback, '%', 100, 0)}
+                    </label>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="0.9" 
+                      step="0.01" 
+                      value={delayFeedback}
+                      onChange={(e) => setDelayFeedback(parseFloat(e.target.value))}
+                      className="effect-slider"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="control-group">
           <h3>Complexity</h3>
@@ -207,8 +404,6 @@ const EnhancedMelodyControls: React.FC<MelodyControlsProps> = ({
             </label>
           </div>
         </div>
-        
-        {/* Streaming generation control removed */}
       </div>
       
       <div className="melody-generate">
@@ -239,7 +434,6 @@ const EnhancedMelodyControls: React.FC<MelodyControlsProps> = ({
             </>
           )}
         </button>
-        {/* Streaming status indicator removed */}
         
         <div className="melody-info">
           {isGenerating ? (

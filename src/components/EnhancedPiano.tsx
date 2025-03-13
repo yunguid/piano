@@ -3,7 +3,7 @@ import * as Tone from 'tone';
 import EnhancedMelodyControls from './EnhancedMelodyControls';
 import { Melody, Note, Chord } from '../services/MelodyGenerator';
 import Logger from '../utils/Logger';
-import { SoundOption, DEFAULT_SOUNDS, getSoundNameFromFilename } from '../services/SoundLoader';
+import { SoundOption, DEFAULT_SOUNDS, getSoundNameFromFilename, getAllSounds } from '../services/SoundLoader';
 import './Piano.css';
 
 // Create a domain-specific logger
@@ -133,172 +133,6 @@ const PianoKey = memo(({
   );
 });
 
-// Memoized debug panel component
-const DebugPanel = memo(({ 
-  messages, 
-  activeNotes, 
-  selectedSound,
-  performanceSettings
-}: { 
-  messages: string[], 
-  activeNotes: Set<string>,
-  selectedSound: string,
-  performanceSettings: typeof PERFORMANCE.MEDIUM
-}) => {
-  return (
-    <div className="debug-panel">
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        marginBottom: '12px' 
-      }}>
-        <div style={{ 
-          padding: '6px 10px', 
-          background: 'rgba(0, 0, 0, 0.3)', 
-          borderRadius: '6px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <strong style={{ fontSize: '11px', opacity: 0.8 }}>ACTIVE NOTES:</strong> 
-          <span style={{ 
-            background: 'rgba(59, 130, 246, 0.2)', 
-            color: 'rgb(59, 130, 246)',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}>
-            {activeNotes.size}
-          </span>
-        </div>
-        
-        <div style={{ 
-          padding: '6px 10px', 
-          background: 'rgba(0, 0, 0, 0.3)', 
-          borderRadius: '6px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <strong style={{ fontSize: '11px', opacity: 0.8 }}>SOUND:</strong> 
-          <span style={{ 
-            background: 'rgba(236, 72, 153, 0.2)', 
-            color: 'rgb(236, 72, 153)',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}>
-            {selectedSound}
-          </span>
-        </div>
-      </div>
-      
-      <div>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '8px'
-        }}>
-          <strong style={{ 
-            fontSize: '12px', 
-            color: '#3fdf4b',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px'
-          }}>
-            <span style={{ fontSize: '14px' }}>📋</span> EVENT LOG
-          </strong>
-          <span style={{ 
-            fontSize: '10px', 
-            background: 'rgba(16, 185, 129, 0.2)', 
-            color: 'rgb(16, 185, 129)',
-            padding: '1px 6px',
-            borderRadius: '10px'
-          }}>
-            {messages.length} entries
-          </span>
-        </div>
-        
-        <div style={{ 
-          maxHeight: '180px', 
-          overflowY: 'auto', 
-          background: 'rgba(0, 0, 0, 0.3)',
-          borderRadius: '6px',
-          padding: '8px',
-          marginBottom: '12px',
-          // Performance improvements
-          transform: 'translateZ(0)',
-          willChange: 'transform',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,0.2) rgba(0,0,0,0.3)'
-        }}>
-          {messages.length === 0 ? (
-            <div style={{ 
-              padding: '15px', 
-              textAlign: 'center', 
-              color: 'rgba(255, 255, 255, 0.4)',
-              fontStyle: 'italic',
-              fontSize: '11px'
-            }}>
-              No events logged yet
-            </div>
-          ) : (
-            <ul style={{ 
-              listStyleType: 'none', 
-              padding: 0, 
-              margin: 0
-            }}>
-              {messages.slice(-performanceSettings.maxDebugMessages).map((msg, i) => {
-                // Different styles for different message types with icons
-                let msgStyle: { color: string; fontWeight?: string } = { color: '#3fdf4b' };
-                let icon = '✓';
-                
-                if (msg.includes('ERROR')) {
-                  msgStyle = { color: '#e74c3c', fontWeight: 'bold' };
-                  icon = '❌';
-                } else if (msg.includes('⚠️')) {
-                  msgStyle = { color: '#f39c12' };
-                  icon = '⚠️';
-                } else if (msg.includes('LEGATO')) {
-                  msgStyle = { color: '#3498db' };
-                  icon = '🔄';
-                } else if (msg.includes('▶️')) {
-                  msgStyle = { color: '#2ecc71' };
-                  icon = '▶️';
-                } else if (msg.includes('⏸️')) {
-                  msgStyle = { color: '#e67e22' };
-                  icon = '⏸️';
-                }
-                
-                return (
-                  <li key={i} style={{ 
-                    fontSize: '11px', 
-                    padding: '4px 0',
-                    borderBottom: i < messages.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                    ...msgStyle
-                  }}>
-                    {msg}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  // Only re-render if these props change
-  return (
-    prevProps.messages.length === nextProps.messages.length &&
-    prevProps.activeNotes.size === nextProps.activeNotes.size &&
-    prevProps.selectedSound === nextProps.selectedSound
-  );
-});
-
 const EnhancedPiano = () => {
   const [synth, setSynth] = useState<Tone.PolySynth | null>(null);
   const [activeNotes, setActiveNotes] = useState<Set<string>>(new Set());
@@ -320,6 +154,100 @@ const EnhancedPiano = () => {
   const reverbRef = useRef<Tone.Reverb | null>(null);
   const delayRef = useRef<Tone.FeedbackDelay | null>(null);
   
+  // Debug state
+  const [showDebugInfo, setShowDebugInfo] = useState<boolean>(true);
+  const [debugMessages, setDebugMessages] = useState<string[]>([]);
+  const [lastNotePlayedTime, setLastNotePlayedTime] = useState<string>('N/A');
+  const [playbackIssueDetected, setPlaybackIssueDetected] = useState<boolean>(false);
+  const playbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Add direct logging on component mount
+  useEffect(() => {
+    // Force the debug console to be visible
+    const debugConsole = document.getElementById('debug-console-container');
+    if (debugConsole) {
+      debugConsole.style.display = 'block';
+      
+      // Directly add a log entry to the console
+      const logEntries = document.getElementById('log-entries');
+      if (logEntries) {
+        // Clear any existing content
+        logEntries.innerHTML = '';
+        
+        // Add a direct log entry
+        const entry = document.createElement('div');
+        entry.className = 'debug-log-entry success';
+        entry.textContent = `[${new Date().toLocaleTimeString()}] [Direct] Piano component initialized`;
+        logEntries.appendChild(entry);
+        
+        // Update entry count if it exists
+        const entriesCount = document.getElementById('log-entries-count');
+        if (entriesCount) {
+          entriesCount.textContent = '1 entry';
+        }
+      } else {
+        console.error('Log entries element not found in debug console');
+        
+        // Try to create the log entries element if it doesn't exist
+        if (debugConsole.innerHTML === '') {
+          console.log('Debug console is empty, initializing it directly');
+          
+          // Create basic structure
+          const header = document.createElement('div');
+          header.textContent = 'Debug Console';
+          header.style.padding = '10px';
+          header.style.backgroundColor = '#111';
+          header.style.borderBottom = '1px solid #333';
+          
+          const newLogEntries = document.createElement('div');
+          newLogEntries.id = 'log-entries';
+          newLogEntries.className = 'log-entries';
+          
+          const entry = document.createElement('div');
+          entry.className = 'debug-log-entry success';
+          entry.textContent = `[${new Date().toLocaleTimeString()}] [Direct] Piano component initialized`;
+          
+          newLogEntries.appendChild(entry);
+          
+          debugConsole.appendChild(header);
+          debugConsole.appendChild(newLogEntries);
+        }
+      }
+    } else {
+      console.error('Debug console container not found!');
+    }
+    
+    // Log startup messages
+    console.log('EnhancedPiano component mounted');
+    logger.info('Piano application started');
+    logger.debug('Debug console should be visible now');
+    logger.success('Initialization complete');
+    
+    // Log some test messages with different levels
+    setTimeout(() => {
+      logger.info('Testing info message');
+      logger.warn('Testing warning message');
+      logger.error('Testing error message');
+      logger.debug('Testing debug message', { test: 'data' });
+    }, 1000);
+  }, []);
+  
+  // Helper function to add debug messages
+  const addDebugMessage = useCallback((message: string) => {
+    setDebugMessages(prev => {
+      const newMessages = [...prev, `${new Date().toISOString().substring(11, 23)}: ${message}`];
+      // Keep only the last 20 messages to avoid cluttering the UI
+      if (newMessages.length > 20) {
+        return newMessages.slice(newMessages.length - 20);
+      }
+      
+      // Also log to the Logger utility to ensure it appears in the debug console
+      logger.debug(message);
+      
+      return newMessages;
+    });
+  }, []);
+  
   // Intercept isPlaying state changes for debugging
   const setIsPlayingWithDebug = useCallback((newState: boolean) => {
     // Only add debug messages when the state actually changes
@@ -336,19 +264,14 @@ const EnhancedPiano = () => {
         });
         
         // Add to UI debug panel
-        setDebugMessages(prev => {
-          const newMessages = [...prev, `${new Date().toISOString().substring(11, 23)}: ${debugMsg}`];
-          if (newMessages.length > 20) {
-            return newMessages.slice(newMessages.length - 20);
-          }
-          return newMessages;
-        });
+        addDebugMessage(debugMsg);
       }, 0);
     }
     
     // Actually update the state
     setIsPlaying(newState);
-  }, [isPlaying]);
+  }, [isPlaying, addDebugMessage]);
+  
   const [hasFocus, setHasFocus] = useState<boolean>(false);
   const [mode, setMode] = useState<PianoMode>('keyboard');
   const [showModeSelection, setShowModeSelection] = useState<boolean>(false);
@@ -370,18 +293,11 @@ const EnhancedPiano = () => {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const recorderRef = useRef<Tone.Recorder | null>(null);
   // Sound selector state
-  const [selectedSound, setSelectedSound] = useState<string>(SOUND_TYPE.DEFAULT);
+  const [selectedSound, setSelectedSound] = useState<string>('default');
   const samplerRef = useRef<Tone.Sampler | null>(null);
-  const [soundsLoaded, setSoundsLoaded] = useState<boolean>(false);
+  const [soundsLoaded, setSoundsLoaded] = useState<boolean>(true);
   const [availableSounds, setAvailableSounds] = useState<SoundOption[]>(DEFAULT_SOUNDS);
-  const [soundsLoading, setSoundsLoading] = useState<boolean>(true);
-  
-  // Debug state
-  const [showDebugInfo, setShowDebugInfo] = useState<boolean>(true);
-  const [debugMessages, setDebugMessages] = useState<string[]>([]);
-  const [lastNotePlayedTime, setLastNotePlayedTime] = useState<string>('N/A');
-  const [playbackIssueDetected, setPlaybackIssueDetected] = useState<boolean>(false);
-  const playbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [soundsLoading, setSoundsLoading] = useState<boolean>(false);
   
   // Forward declarations to break circular references
   const stopRecordingRef = useRef<(() => Promise<void>) | undefined>(undefined);
@@ -974,545 +890,6 @@ const EnhancedPiano = () => {
       }
     }
   }, []);
-
-  // Completely refactored scheduleNextNote to ensure reliable playback with enhanced debugging
-  // Helper function to add debug messages
-  const addDebugMessage = useCallback((message: string) => {
-    setDebugMessages(prev => {
-      const newMessages = [...prev, `${new Date().toISOString().substring(11, 23)}: ${message}`];
-      // Keep only the last 20 messages to avoid cluttering the UI
-      if (newMessages.length > 20) {
-        return newMessages.slice(newMessages.length - 20);
-      }
-      return newMessages;
-    });
-  }, []);
-
-  // Debug component
-  // Memoize DebugPanel for performance
-  const DebugPanel = useCallback(() => {
-    // Don't render anything if debug info is not shown
-    if (!showDebugInfo) return null;
-    
-    // Use CSS transform for better performance with hardware acceleration
-    return (
-      <div className="debug-panel" style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        width: '420px',
-        maxHeight: '400px',
-        overflowY: 'auto',
-        backgroundColor: 'rgba(10, 12, 16, 0.9)',
-        color: '#3fdf4b',
-        padding: '15px',
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-        fontSize: '12px',
-        lineHeight: '1.5',
-        zIndex: 9999,
-        border: playbackIssueDetected ? '2px solid #e74c3c' : '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '12px',
-        backdropFilter: 'blur(10px)',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
-        // Use transform for GPU acceleration
-        transform: 'translateZ(0)',
-        // Smooth animation for appearance
-        animation: 'fadeInUp 0.3s ease-out',
-        // Improved scrollbar styling for better usability
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.2)'
-      }}>
-        {/* Header with controls */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '15px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          paddingBottom: '10px',
-          position: 'sticky',
-          top: 0,
-          backgroundColor: 'rgba(10, 12, 16, 0.95)',
-          zIndex: 2,
-          backdropFilter: 'blur(8px)'
-        }}>
-          <h3 style={{ 
-            margin: 0, 
-            color: playbackIssueDetected ? '#e74c3c' : '#3fdf4b',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span style={{ marginRight: '6px' }}>🔧</span>
-            Debug Console
-            {playbackIssueDetected && (
-              <span style={{ 
-                color: '#e74c3c', 
-                background: 'rgba(231, 76, 60, 0.2)', 
-                padding: '3px 8px', 
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                marginLeft: '8px',
-                animation: 'pulseWarning 1.5s infinite'
-              }}>
-                ⚠️ ISSUE DETECTED
-              </span>
-            )}
-          </h3>
-          
-          {/* Control buttons */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => setDebugMessages([])}
-              title="Clear Log"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.1)', 
-                border: 'none', 
-                color: 'white', 
-                cursor: 'pointer',
-                width: '24px',
-                height: '24px',
-                borderRadius: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '12px',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-            >
-              🧹
-            </button>
-            <button 
-              onClick={() => setShowDebugInfo(false)} 
-              title="Close Debug Panel"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.1)', 
-                border: 'none', 
-                color: 'white', 
-                cursor: 'pointer',
-                width: '24px',
-                height: '24px',
-                borderRadius: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '14px',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-            >
-              ×
-            </button>
-          </div>
-        </div>
-        
-        {/* Status indicators with improved design */}
-        <div style={{ 
-          marginBottom: '15px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '8px',
-          borderRadius: '8px',
-          padding: '8px',
-          backgroundColor: 'rgba(0, 0, 0, 0.2)'
-        }}>
-          <div style={{ 
-            padding: '6px 10px', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            borderRadius: '6px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <strong style={{ fontSize: '11px', opacity: 0.8 }}>PLAYING:</strong> 
-            <span style={{ 
-              background: isPlaying ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)', 
-              color: isPlaying ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              transition: 'all 0.3s ease'
-            }}>
-              {isPlaying ? 'YES' : 'NO'}
-            </span>
-          </div>
-          
-          <div style={{ 
-            padding: '6px 10px', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            borderRadius: '6px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <strong style={{ fontSize: '11px', opacity: 0.8 }}>NOTE INDEX:</strong> 
-            <span style={{ 
-              background: 'rgba(16, 185, 129, 0.2)', 
-              color: 'rgb(16, 185, 129)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 'bold'
-            }}>
-              {currentNoteIndex.current}
-            </span>
-          </div>
-          
-          <div style={{ 
-            padding: '6px 10px', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            borderRadius: '6px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <strong style={{ fontSize: '11px', opacity: 0.8 }}>AUDIO CTX:</strong> 
-            <span style={{ 
-              background: Tone.context.state === 'running' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)', 
-              color: Tone.context.state === 'running' ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 'bold'
-            }}>
-              {Tone.context.state}
-            </span>
-          </div>
-          
-          <div style={{ 
-            padding: '6px 10px', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            borderRadius: '6px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <strong style={{ fontSize: '11px', opacity: 0.8 }}>TIMEOUT:</strong> 
-            <span style={{ 
-              background: currentTimeoutId.current ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)', 
-              color: currentTimeoutId.current ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 'bold'
-            }}>
-              {currentTimeoutId.current ? 'ACTIVE' : 'NONE'}
-            </span>
-          </div>
-          
-          <div style={{ 
-            padding: '6px 10px', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            borderRadius: '6px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <strong style={{ fontSize: '11px', opacity: 0.8 }}>LAST NOTE TIME:</strong> 
-            <span style={{ 
-              background: 'rgba(124, 58, 237, 0.2)', 
-              color: 'rgb(124, 58, 237)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              maxWidth: '220px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}>
-              {lastNotePlayedTime}
-            </span>
-          </div>
-          
-          <div style={{ 
-            padding: '6px 10px', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            borderRadius: '6px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <strong style={{ fontSize: '11px', opacity: 0.8 }}>ACTIVE NOTES:</strong> 
-            <span style={{ 
-              background: 'rgba(245, 158, 11, 0.2)', 
-              color: 'rgb(245, 158, 11)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 'bold'
-            }}>
-              {activeNotes.size}
-            </span>
-          </div>
-          
-          <div style={{ 
-            padding: '6px 10px', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            borderRadius: '6px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <strong style={{ fontSize: '11px', opacity: 0.8 }}>SOUND:</strong> 
-            <span style={{ 
-              background: 'rgba(236, 72, 153, 0.2)', 
-              color: 'rgb(236, 72, 153)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 'bold'
-            }}>
-              {selectedSound}
-            </span>
-          </div>
-        </div>
-        
-        <div>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '8px'
-          }}>
-            <strong style={{ 
-              fontSize: '12px', 
-              color: '#3fdf4b',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}>
-              <span style={{ fontSize: '14px' }}>📋</span> EVENT LOG
-            </strong>
-            <span style={{ 
-              fontSize: '10px', 
-              background: 'rgba(16, 185, 129, 0.2)', 
-              color: 'rgb(16, 185, 129)',
-              padding: '1px 6px',
-              borderRadius: '10px'
-            }}>
-              {debugMessages.length} entries
-            </span>
-          </div>
-          
-          <div style={{ 
-            maxHeight: '180px', 
-            overflowY: 'auto', 
-            background: 'rgba(0, 0, 0, 0.3)',
-            borderRadius: '6px',
-            padding: '8px',
-            marginBottom: '12px',
-            // Performance improvements
-            transform: 'translateZ(0)',
-            willChange: 'transform',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(255,255,255,0.2) rgba(0,0,0,0.3)'
-          }}>
-            {debugMessages.length === 0 ? (
-              <div style={{ 
-                padding: '15px', 
-                textAlign: 'center', 
-                color: 'rgba(255, 255, 255, 0.4)',
-                fontStyle: 'italic',
-                fontSize: '11px'
-              }}>
-                No events logged yet
-              </div>
-            ) : (
-              <ul style={{ 
-                listStyleType: 'none', 
-                padding: 0, 
-                margin: 0
-              }}>
-                {debugMessages.slice(-100).map((msg, i) => {
-                  // Different styles for different message types with icons
-                  let msgStyle: { color: string; fontWeight?: string } = { color: '#3fdf4b' };
-                  let icon = '✓';
-                  
-                  
-                  if (msg.includes('ERROR')) {
-                    msgStyle = { color: '#e74c3c', fontWeight: 'bold' };
-                    icon = '❌';
-                  } else if (msg.includes('⚠️')) {
-                    msgStyle = { color: '#f39c12' };
-                    icon = '⚠️';
-                  } else if (msg.includes('LEGATO')) {
-                    msgStyle = { color: '#3498db' };
-                    icon = '🔄';
-                  } else if (msg.includes('▶️')) {
-                    msgStyle = { color: '#2ecc71' };
-                    icon = '▶️';
-                  } else if (msg.includes('⏸️')) {
-                    msgStyle = { color: '#9b59b6' };
-                    icon = '⏸️';
-                  } else if (msg.includes('🎵')) {
-                    msgStyle = { color: '#1abc9c' };
-                    icon = '🎵';
-                  }
-                  
-                  // Animation for new messages
-                  const isNewMessage = i === debugMessages.length - 1;
-                  
-                  return (
-                    <li key={i} style={{ 
-                      margin: '3px 0', 
-                      padding: '4px 8px', 
-                      borderRadius: isNewMessage ? '4px' : '0',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                      fontSize: '11px',
-                      lineHeight: '1.5',
-                      background: isNewMessage ? 'rgba(255, 255, 255, 0.07)' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '6px',
-                      transition: 'all 0.2s ease',
-                      animation: isNewMessage ? 'fadeIn 0.3s ease-out' : 'none',
-                      ...msgStyle
-                    }}>
-                      <span style={{ 
-                        fontSize: '12px', 
-                        marginTop: '2px',
-                        flexShrink: 0
-                      }}>{icon}</span>
-                      <span style={{ wordBreak: 'break-word' }}>{msg}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </div>
-        
-        <button 
-          onClick={() => {
-            setDebugMessages([]);
-            setPlaybackIssueDetected(false);
-          }}
-          style={{
-            background: 'linear-gradient(135deg, rgba(45, 55, 72, 0.7), rgba(30, 40, 55, 0.7))',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            padding: '8px 15px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            transition: 'all 0.2s ease',
-            fontWeight: 'bold',
-            fontSize: '12px',
-            marginTop: '5px',
-            boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, rgba(55, 65, 82, 0.7), rgba(40, 50, 65, 0.7))'}
-          onMouseOut={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, rgba(45, 55, 72, 0.7), rgba(30, 40, 55, 0.7))'}
-        >
-          <span style={{ marginRight: '5px' }}>🧹</span> Clear Log
-        </button>
-      </div>
-    );
-  }, [showDebugInfo, isPlaying, currentNoteIndex, activeNotes.size, lastNotePlayedTime, 
-      debugMessages, playbackIssueDetected, currentTimeoutId.current, selectedSound, soundsLoaded]);
-
-  // Special processor for legato notes - ensure they work correctly 
-  useEffect(() => {
-    if (isPlaying && currentMelody && currentMelody.melody) {
-      const melody = currentMelody.melody;
-      
-      // Check for legato notes and add special handling
-      const hasLegatoNotes = melody.some(note => note.articulation === 'legato');
-      
-      if (hasLegatoNotes) {
-        console.warn('LEGATO NOTES DETECTED IN MELODY - Activating special handling');
-        addDebugMessage('⚠️ Legato notes detected - activating special handling');
-        
-        // Special handling for legato is implemented in the note scheduling
-      }
-    }
-  }, [isPlaying, currentMelody]);
-
-  // Handle melody state changes for debugging
-  useEffect(() => {
-    if (currentMelody) {
-      if (currentMelody.melody) {
-        const melody = currentMelody.melody;
-        
-        // Debug help - print out first 5 notes or less
-        const firstNotes = melody.slice(0, Math.min(5, melody.length));
-        
-        addDebugMessage(`🎵 Melody loaded: ${melody.length} notes, first notes: ${
-          firstNotes.map(n => n.note || (n.rest ? "REST" : "?")).join(", ")
-        }`);
-        
-        // Log detailed information about each articulation type
-        const articulations = melody
-          .map(n => n.articulation || 'normal')
-          .reduce((count, art) => {
-            count[art] = (count[art] || 0) + 1;
-            return count;
-          }, {} as Record<string, number>);
-          
-        addDebugMessage(`🎵 Articulations: ${Object.entries(articulations)
-          .map(([art, count]) => `${art}(${count})`)
-          .join(', ')}`);
-      }
-      
-      if (currentMelody.chords && currentMelody.chords.length > 0) {
-        const chords = currentMelody.chords;
-        const chordSummary = chords.slice(0, Math.min(3, chords.length))
-          .map((chord, idx) => {
-            if (chord.chord_symbol) {
-              return chord.chord_symbol;
-            } else if (chord.notes && chord.notes.length > 0) {
-              return `${chord.notes[0]}...`;
-            } else {
-              return `Chord ${idx}`;
-            }
-          }).join(", ");
-        
-        addDebugMessage(`🎹 Chords loaded: ${chords.length} chords, first chords: ${chordSummary}`);
-        
-        // Add info about key, tempo, etc.
-        const infoMessage = `🎼 Info: Key=${currentMelody.key || 'Unknown'}, Tempo=${currentMelody.tempo || 'Unknown'}`;
-        addDebugMessage(infoMessage);
-      } else {
-        addDebugMessage(`⚠️ No chords found in melody`);
-      }
-    }
-  }, [currentMelody, addDebugMessage]);
-
-  // Effect parameter update handler
-  useEffect(() => {
-    // Update reverb effect when parameters change
-    if (reverbRef.current) {
-      logger.debug('Updating reverb parameters', { decay: reverbDecay, wet: reverbWet });
-      reverbRef.current.decay = reverbDecay;
-      reverbRef.current.wet.value = reverbWet;
-    }
-  }, [reverbDecay, reverbWet]);
-  
-  // Effect parameter update handler for delay
-  useEffect(() => {
-    // Update delay effect when parameters change
-    if (delayRef.current) {
-      logger.debug('Updating delay parameters', { 
-        time: delayTime, 
-        feedback: delayFeedback,
-        wet: delayWet 
-      });
-      delayRef.current.delayTime.value = delayTime;
-      delayRef.current.feedback.value = delayFeedback;
-      delayRef.current.wet.value = delayWet;
-    }
-  }, [delayTime, delayFeedback, delayWet]);
 
   // Monitor for playback issues
   useEffect(() => {
@@ -2552,81 +1929,89 @@ const EnhancedPiano = () => {
     };
   }, []);
 
-  // Load available sounds from the sounds directory - improved reliability
+  // Initialize audio effects
+  useEffect(() => {
+    const initializeEffects = async () => {
+      try {
+        await ensureAudioContextRunning();
+        
+        // Create reverb effect
+        if (!reverbRef.current) {
+          reverbRef.current = new Tone.Reverb({
+            decay: reverbDecay,
+            wet: reverbWet,
+            preDelay: 0.01
+          }).toDestination();
+        } else {
+          reverbRef.current.decay = reverbDecay;
+          reverbRef.current.wet.value = reverbWet;
+        }
+        
+        // Create delay effect
+        if (!delayRef.current) {
+          delayRef.current = new Tone.FeedbackDelay({
+            delayTime: delayTime,
+            feedback: delayFeedback,
+            wet: delayWet
+          }).connect(reverbRef.current);
+        } else {
+          delayRef.current.delayTime.value = delayTime;
+          delayRef.current.feedback.value = delayFeedback;
+          delayRef.current.wet.value = delayWet;
+        }
+        
+        logger.debug('Audio effects initialized', {
+          reverb: { decay: reverbDecay, wet: reverbWet },
+          delay: { time: delayTime, feedback: delayFeedback, wet: delayWet }
+        });
+      } catch (error) {
+        logger.error('Failed to initialize audio effects', error);
+      }
+    };
+    
+    initializeEffects();
+    
+    return () => {
+      // Clean up effects on unmount
+      if (reverbRef.current) {
+        reverbRef.current.dispose();
+        reverbRef.current = null;
+      }
+      
+      if (delayRef.current) {
+        delayRef.current.dispose();
+        delayRef.current = null;
+      }
+    };
+  }, [reverbDecay, reverbWet, delayTime, delayFeedback, delayWet, ensureAudioContextRunning]);
+
+  // Update effects parameters when they change
+  useEffect(() => {
+    if (reverbRef.current) {
+      reverbRef.current.decay = reverbDecay;
+      reverbRef.current.wet.value = reverbWet;
+    }
+    
+    if (delayRef.current) {
+      delayRef.current.delayTime.value = delayTime;
+      delayRef.current.feedback.value = delayFeedback;
+      delayRef.current.wet.value = delayWet;
+    }
+  }, [reverbDecay, reverbWet, delayTime, delayFeedback, delayWet]);
+
+  // Load available sounds using the getAllSounds function
   useEffect(() => {
     const loadSounds = async () => {
       try {
-        logger.debug('Loading available sounds from directory...');
+        logger.debug('Loading available sounds...');
         setSoundsLoading(true);
-
-        // Create a new sounds array starting with default
-        const sounds: SoundOption[] = [...DEFAULT_SOUNDS];
         
-        // Define the list of sound files to load - only include smaller files for better performance
-        // Make sure we include a good variety of different types
-        const soundFiles = [
-          '1.wav', // Simple default alternative
-          'Srm_LEAD - Buchla_240412165019_C3 C3.wav', // Lead sound
-          'Srm_PAD - A Tonal_240412165043_C3 C3.wav', // Pad sound
-          'Srm_BASS - Analog 808 01_240412164910_C3 C3.wav' // Bass sound
-        ];
-        
-        // Load sounds sequentially to prevent overwhelming the browser
-        for (const filename of soundFiles) {
-          try {
-            logger.debug(`Loading sound sample: ${filename}`);
-            
-            // Use a longer timeout for larger files
-            const loadWithTimeout = Promise.race([
-              import(/* @vite-ignore */ `../../sounds/${filename}`),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error(`Loading ${filename} timed out`)), 5000)
-              )
-            ]);
-            
-            // Wait for the sound to load
-            const soundModule = await loadWithTimeout as any;
-            
-            // Verify that the module loaded correctly and has a default export
-            if (!soundModule || !soundModule.default) {
-              throw new Error(`Invalid sound module for ${filename}`);
-            }
-            
-            // Create a user-friendly name from the filename
-            let name = getSoundNameFromFilename(filename);
-            
-            // For specific sound types, add a category prefix
-            if (filename.includes('BASS')) {
-              name = `Bass: ${name}`;
-            } else if (filename.includes('LEAD')) {
-              name = `Lead: ${name}`;
-            } else if (filename.includes('PAD')) {
-              name = `Pad: ${name}`;
-            }
-            
-            // Add the sound to the array
-            sounds.push({
-              id: `sound_${filename}`,
-              name,
-              url: soundModule.default
-            });
-            
-            logger.debug(`Successfully loaded sound: ${name}`);
-            
-            // Add a short delay between loading files to prevent browser from freezing
-            await new Promise(resolve => setTimeout(resolve, 100));
-          } catch (error) {
-            logger.warn(`Failed to load sound ${filename}`, {
-              message: (error as Error).message
-            });
-          }
-        }
+        // Get all sounds from the SoundLoader
+        const sounds = getAllSounds();
         
         // Update available sounds
         setAvailableSounds(sounds);
-        logger.success(`Loaded ${sounds.length - 1} sound options`, {
-          sounds: sounds.map(s => s.name).join(', ')
-        });
+        logger.success(`Loaded ${sounds.length} sound options`);
       } catch (error) {
         logger.error('Error loading sounds', { 
           message: (error as Error).message,
@@ -2644,10 +2029,10 @@ const EnhancedPiano = () => {
     
     return () => clearTimeout(timer);
   }, []);
-  
+
   // Update sampler when sound changes
   useEffect(() => {
-    if (selectedSound === SOUND_TYPE.DEFAULT) {
+    if (selectedSound === 'default') {
       setSoundsLoaded(true);
       return;
     }
@@ -2673,7 +2058,7 @@ const EnhancedPiano = () => {
       }
       
       // Fall back to default sound
-      setSelectedSound(SOUND_TYPE.DEFAULT);
+      setSelectedSound('default');
       alert(`Sound "${soundOption.name}" failed to load (timeout). Falling back to default sound.`);
     }, 5000);
     
@@ -2688,51 +2073,61 @@ const EnhancedPiano = () => {
       // Create new sampler with the selected sound
       try {
         // Pre-fetch the audio to check if it's valid
-        fetch(soundOption.url as string)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.arrayBuffer();
-          })
-          .then(buffer => {
-            // Create audio buffer from response
-            return Tone.context.decodeAudioData(buffer);
-          })
-          .then(audioBuffer => {
-            // Create sampler with pre-loaded buffer and map to all piano notes
-            const newSampler = new Tone.Sampler({
-              urls: {
-                "C4": audioBuffer,
-              },
-              release: 1,
-              onload: () => {
-                clearTimeout(timeoutId);
-                logger.success(`Sound '${soundOption.name}' loaded successfully`);
-                setSoundsLoaded(true);
-                logger.debug('Sampler pitch map ready for full keyboard range');
+        if (soundOption.url) {
+          fetch(soundOption.url)
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
               }
-            }).toDestination();
-            
-            samplerRef.current = newSampler;
-          })
-          .catch(error => {
-            clearTimeout(timeoutId);
-            logger.error(`Failed to load audio for ${soundOption.name}`, error);
-            setSoundsLoaded(false);
-            setSelectedSound(SOUND_TYPE.DEFAULT);
-          });
+              return response.arrayBuffer();
+            })
+            .then(buffer => {
+              // Create audio buffer from response
+              return Tone.context.decodeAudioData(buffer);
+            })
+            .then(audioBuffer => {
+              // Create sampler with pre-loaded buffer and map to all piano notes
+              const newSampler = new Tone.Sampler({
+                urls: {
+                  "C4": audioBuffer,
+                },
+                release: 1,
+                onload: () => {
+                  clearTimeout(timeoutId);
+                  logger.success(`Sound '${soundOption.name}' loaded successfully`);
+                  setSoundsLoaded(true);
+                  
+                  // Connect sampler to effects chain
+                  if (delayRef.current && reverbRef.current) {
+                    newSampler.chain(delayRef.current, reverbRef.current, Tone.Destination);
+                  } else {
+                    newSampler.toDestination();
+                  }
+                  
+                  logger.debug('Sampler connected to effects chain');
+                }
+              });
+              
+              samplerRef.current = newSampler;
+            })
+            .catch(error => {
+              clearTimeout(timeoutId);
+              logger.error(`Failed to load audio for ${soundOption.name}`, error);
+              setSoundsLoaded(false);
+              setSelectedSound('default');
+            });
+        }
       } catch (error) {
         clearTimeout(timeoutId);
         logger.error(`Failed to create sampler for ${soundOption.name}`, error);
         setSoundsLoaded(false);
-        setSelectedSound(SOUND_TYPE.DEFAULT);
+        setSelectedSound('default');
       }
     }).catch(error => {
       clearTimeout(timeoutId);
       logger.error("Failed to initialize audio context for sampler", error);
       setSoundsLoaded(false);
-      setSelectedSound(SOUND_TYPE.DEFAULT);
+      setSelectedSound('default');
     });
     
     return () => {
@@ -2745,295 +2140,74 @@ const EnhancedPiano = () => {
   }, [selectedSound, availableSounds, ensureAudioContextRunning]);
 
   // Handle sound selection change
-  const handleSoundChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSound = e.target.value;
-    logger.debug(`Changing sound to ${newSound}`);
-    
-    // Reset loaded state when changing sounds
-    if (newSound !== SOUND_TYPE.DEFAULT && newSound !== selectedSound) {
-      setSoundsLoaded(false);
-    }
-    
-    setSelectedSound(newSound);
-    
-    // Provide immediate user feedback
-    if (newSound !== SOUND_TYPE.DEFAULT) {
-      // Force audio context to start if needed
-      ensureAudioContextRunning().catch(err => 
-        logger.error("Failed to start audio context when changing sound", err)
-      );
-    }
-  };
+  const handleSoundChange = useCallback((soundId: string) => {
+    logger.debug(`Changing sound to ${soundId}`);
+    setSelectedSound(soundId);
+  }, []);
+
+  // Toggle effects panel
+  const toggleEffectsPanel = useCallback(() => {
+    setShowEffectsPanel(!showEffectsPanel);
+  }, [showEffectsPanel]);
 
   // Sound Options component with added effects controls
-  const SoundOptions = useCallback(() => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [effectsPanelExpanded, setEffectsPanelExpanded] = useState(false);
-    
-    const handleSelectClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setIsOpen(!isOpen);
-    };
-    
-    const toggleEffectsPanel = () => {
-      setEffectsPanelExpanded(!effectsPanelExpanded);
-    };
-
-    // Helper to format slider values
-    const formatValue = (value: number, unit: string, multiplier = 1, precision = 0) => {
-      return `${(value * multiplier).toFixed(precision)}${unit}`;
-    };
-    
-    // Helper to determine if any effects are active
-    const areEffectsActive = reverbWet > 0.05 || delayWet > 0.05;
-    
+  const SoundOptions = () => {
     return (
-      <div className="sound-options">
-        <label htmlFor="sound-selector">Sound:</label>
-        <select 
-          id="sound-selector" 
+      <div className="sound-options" style={{ top: mode === 'melody' ? '80px' : '20px' }}>
+        <select
           value={selectedSound}
-          onChange={handleSoundChange}
-          onClick={handleSelectClick}
-          onFocus={() => setIsOpen(true)}
-          onBlur={() => setIsOpen(false)}
-          className={`sound-selector ${selectedSound !== SOUND_TYPE.DEFAULT && !soundsLoaded ? 'loading' : ''} ${isOpen ? 'open' : ''}`}
+          onChange={(e) => handleSoundChange(e.target.value)}
+          disabled={soundsLoading}
+          className="sound-selector"
         >
           {availableSounds.map(sound => (
-            <option 
-              key={sound.id} 
-              value={sound.id}
-            >
+            <option key={sound.id} value={sound.id}>
               {sound.name}
             </option>
           ))}
         </select>
         
-        {soundsLoading && <span className="loading-indicator">Loading sound options...</span>}
-        {!soundsLoading && selectedSound !== SOUND_TYPE.DEFAULT && !soundsLoaded && (
-          <span className="loading-indicator">Loading selected sound...</span>
+        {selectedSound !== 'default' && !soundsLoaded && (
+          <span className="loading-indicator">Loading...</span>
         )}
-        
-        {/* Effects Toggle Button */}
-        <div className="effects-toggle-container">
-          <button 
-            className={`effects-toggle ${areEffectsActive ? 'active' : ''}`}
-            onClick={toggleEffectsPanel}
-            aria-expanded={effectsPanelExpanded}
-            aria-controls="effects-panel"
-          >
-            <span className="effects-toggle-text">Effects</span>
-            <span className="effects-toggle-icon">
-              {effectsPanelExpanded ? '−' : '+'}
-            </span>
-            {areEffectsActive && <span className="effects-active-indicator"></span>}
-          </button>
-        </div>
-        
-        {/* Enhanced Effects Panel with animation */}
-        <div 
-          id="effects-panel"
-          className={`effects-panel ${effectsPanelExpanded ? 'expanded' : 'collapsed'}`}
-          aria-hidden={!effectsPanelExpanded}
-        >
-          <div className="effects-tabs">
-            <button 
-              className={`tab-button ${activeEffectTab === 'reverb' ? 'active' : ''}`}
-              onClick={() => setActiveEffectTab('reverb')}
-            >
-              Reverb
-            </button>
-            <button 
-              className={`tab-button ${activeEffectTab === 'delay' ? 'active' : ''}`}
-              onClick={() => setActiveEffectTab('delay')}
-            >
-              Delay
-            </button>
-          </div>
-          
-          <div className="effects-content">
-            {/* Reverb Controls */}
-            <div className={`effect-tab-content ${activeEffectTab === 'reverb' ? 'active' : ''}`}>
-              <div className="effect-visualization">
-                <div 
-                  className="reverb-visualizer" 
-                  style={{ 
-                    height: `${Math.min(reverbDecay * 10, 100)}%`,
-                    opacity: reverbWet
-                  }}
-                ></div>
-                <span className="effect-label">Reverb</span>
-              </div>
-              
-              <div className="effect-controls">
-                <div className="control-row">
-                  <label htmlFor="reverb-wet">Mix</label>
-                  <input
-                    id="reverb-wet"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={reverbWet}
-                    onChange={(e) => setReverbWet(parseFloat(e.target.value))}
-                    className="effect-slider"
-                  />
-                  <span className="slider-value">{formatValue(reverbWet, '%', 100)}</span>
-                </div>
-                
-                <div className="control-row">
-                  <label htmlFor="reverb-decay">Decay</label>
-                  <input
-                    id="reverb-decay"
-                    type="range"
-                    min="0.1"
-                    max="10"
-                    step="0.1"
-                    value={reverbDecay}
-                    onChange={(e) => setReverbDecay(parseFloat(e.target.value))}
-                    className="effect-slider"
-                  />
-                  <span className="slider-value">{formatValue(reverbDecay, 's', 1, 1)}</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Delay Controls */}
-            <div className={`effect-tab-content ${activeEffectTab === 'delay' ? 'active' : ''}`}>
-              <div className="effect-visualization">
-                <div 
-                  className="delay-visualizer"
-                  style={{ 
-                    width: `${Math.min(delayTime * 100, 100)}%`,
-                    opacity: delayWet,
-                    backgroundImage: `repeating-linear-gradient(
-                      90deg,
-                      rgba(59, 130, 246, 0.8),
-                      rgba(59, 130, 246, 0.8) ${delayFeedback * 100}%,
-                      transparent ${delayFeedback * 100}%,
-                      transparent 100%
-                    )`
-                  }}
-                ></div>
-                <span className="effect-label">Delay</span>
-              </div>
-              
-              <div className="effect-controls">
-                <div className="control-row">
-                  <label htmlFor="delay-wet">Mix</label>
-                  <input
-                    id="delay-wet"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={delayWet}
-                    onChange={(e) => setDelayWet(parseFloat(e.target.value))}
-                    className="effect-slider"
-                  />
-                  <span className="slider-value">{formatValue(delayWet, '%', 100)}</span>
-                </div>
-                
-                <div className="control-row">
-                  <label htmlFor="delay-time">Time</label>
-                  <input
-                    id="delay-time"
-                    type="range"
-                    min="0.05"
-                    max="1"
-                    step="0.01"
-                    value={delayTime}
-                    onChange={(e) => setDelayTime(parseFloat(e.target.value))}
-                    className="effect-slider"
-                  />
-                  <span className="slider-value">{formatValue(delayTime, 'ms', 1000)}</span>
-                </div>
-                
-                <div className="control-row">
-                  <label htmlFor="delay-feedback">Feedback</label>
-                  <input
-                    id="delay-feedback"
-                    type="range"
-                    min="0"
-                    max="0.9"
-                    step="0.01"
-                    value={delayFeedback}
-                    onChange={(e) => setDelayFeedback(parseFloat(e.target.value))}
-                    className="effect-slider"
-                  />
-                  <span className="slider-value">{formatValue(delayFeedback, '%', 100)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     );
-  }, [
-    selectedSound, 
-    soundsLoaded, 
-    soundsLoading, 
-    reverbWet, 
-    reverbDecay, 
-    delayWet, 
-    delayTime, 
-    delayFeedback, 
-    handleSoundChange, 
-    activeEffectTab
-  ]);
-
-  // Update effect parameters when they change
-  useEffect(() => {
-    if (reverbRef.current) {
-      logger.debug('Updating reverb parameters', { decay: reverbDecay, wet: reverbWet });
-      
-      try {
-        reverbRef.current.decay = reverbDecay;
-        reverbRef.current.wet.value = reverbWet;
-      } catch (error) {
-        logger.error('Error updating reverb parameters', { error });
-      }
-    } else {
-      logger.warn('Reverb ref not available for parameter update');
-    }
-  }, [reverbDecay, reverbWet]);
-
-  useEffect(() => {
-    if (delayRef.current) {
-      logger.debug('Updating delay parameters', { 
-        time: delayTime, 
-        feedback: delayFeedback,
-        wet: delayWet 
-      });
-      
-      try {
-        delayRef.current.delayTime.value = delayTime;
-        delayRef.current.feedback.value = delayFeedback;
-        delayRef.current.wet.value = delayWet;
-      } catch (error) {
-        logger.error('Error updating delay parameters', { error });
-      }
-    } else {
-      logger.warn('Delay ref not available for parameter update');
-    }
-  }, [delayTime, delayFeedback, delayWet]);
+  };
 
   return (
     <div className="enhanced-piano-container" onClick={handleInteraction}>
-      {/* Debug Panel */}
-      <DebugPanel />
-      
       {/* Toggle Debug Button */}
       {!showDebugInfo && (
         <button 
-          onClick={() => setShowDebugInfo(true)} 
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowDebugInfo(true);
+            
+            // Find the debug console container and make it visible
+            const debugConsole = document.getElementById('debug-console-container');
+            if (debugConsole) {
+              debugConsole.style.display = 'block';
+              
+              // Log a message to indicate the debug console was opened
+              logger.info('Debug console opened by user');
+              
+              // Add some initial debug information
+              logger.debug('Current state', {
+                activeNotes: Array.from(activeNotes),
+                isPlaying,
+                selectedSound,
+                mode,
+                audioContext: Tone.context.state
+              });
+            }
+          }} 
           style={{
             position: 'fixed',
             bottom: '20px',
             right: '20px',
             background: 'rgba(10, 12, 16, 0.9)',
             color: '#3fdf4b',
-            border: 'none',
+            border: '1px solid rgba(63, 223, 75, 0.3)',
             borderRadius: '8px',
             padding: '8px 16px',
             cursor: 'pointer',
@@ -3117,6 +2291,21 @@ const EnhancedPiano = () => {
             onGenerateMelody={handleEnhancedMelodyGenerated}
             isGenerating={isGeneratingMelody}
             setIsGenerating={setIsGeneratingMelody}
+            availableSounds={availableSounds}
+            selectedSound={selectedSound}
+            onSoundChange={handleSoundChange}
+            reverbWet={reverbWet}
+            setReverbWet={setReverbWet}
+            reverbDecay={reverbDecay}
+            setReverbDecay={setReverbDecay}
+            delayWet={delayWet}
+            setDelayWet={setDelayWet}
+            delayTime={delayTime}
+            setDelayTime={setDelayTime}
+            delayFeedback={delayFeedback}
+            setDelayFeedback={setDelayFeedback}
+            showEffectsPanel={showEffectsPanel}
+            toggleEffectsPanel={toggleEffectsPanel}
           />
           
           {/* New Improved Playback Controls */}

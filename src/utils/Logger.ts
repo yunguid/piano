@@ -13,6 +13,21 @@ enum LogLevel {
 const LOG_LEVEL = process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG;
 const ENABLE_TIMESTAMPS = true;
 const ENABLE_REMOTE_LOGGING = process.env.NODE_ENV !== 'test';
+const DEBUG_CONSOLE_CONTAINER_ID = 'debug-console-container'; // ID of the container element
+
+// Messages to filter out from the debug console
+const FILTER_PATTERNS = [
+  'Forcing debug console to be visible',
+  'Removing keyboard event listeners',
+  'Setting up keyboard event listeners',
+  'Debug console container found',
+  'Debug console initialized'
+];
+
+// Check if a message should be filtered
+const shouldFilter = (message: string): boolean => {
+  return FILTER_PATTERNS.some(pattern => message.includes(pattern));
+};
 
 // ANSI color codes for terminal output
 const COLORS = {
@@ -55,7 +70,7 @@ const LOG_ICONS = {
   info: 'ℹ️',
   warn: '⚠️',
   error: '❌',
-  success: '✅',
+  success: '✓',
   music: '🎵',
   piano: '🎹',
   api: '🌐',
@@ -68,232 +83,473 @@ const LOG_ICONS = {
 class Logger {
   private context: string;
   private perfMarks: Record<string, number> = {};
+  private static consoleInitialized = false;
+  private logCount = 0;
   
   constructor(context: string = 'App') {
     this.context = context;
-  }
-  
-  private getTimestamp(): string {
-    if (!ENABLE_TIMESTAMPS) return '';
     
-    const now = new Date();
-    return `${COLORS.dim}[${now.toLocaleTimeString('en-US', { hour12: false })}.${now.getMilliseconds().toString().padStart(3, '0')}]${COLORS.reset} `;
-  }
-  
-  private formatMessage(level: string, icon: string, message: string, data?: any): string {
-    const timestamp = this.getTimestamp();
-    const contextStr = `${COLORS.fg.cyan}[${this.context}]${COLORS.reset}`;
-    
-    let formattedMsg = `${timestamp}${contextStr} ${icon} ${message}`;
-    
-    if (data) {
-      if (typeof data === 'object') {
-        try {
-          // Try to format the object with indentation for readability
-          const jsonStr = JSON.stringify(data, null, 2);
-          // Only show an excerpt if it's very large
-          const excerpt = jsonStr.length > 500 ? jsonStr.substring(0, 500) + '...' : jsonStr;
-          formattedMsg += `\n${COLORS.dim}${excerpt}${COLORS.reset}`;
-        } catch (e) {
-          formattedMsg += `\n${COLORS.dim}[Non-serializable data]${COLORS.reset}`;
-        }
+    // Initialize the debug console UI if not already done
+    if (!Logger.consoleInitialized && typeof window !== 'undefined') {
+      console.log(`Initializing Logger for context: ${context}`);
+      
+      // Wait for DOM to be fully loaded
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          console.log('DOM loaded, initializing debug console');
+          this.initializeConsoleUI();
+          Logger.consoleInitialized = true;
+        });
       } else {
-        formattedMsg += ` ${COLORS.dim}${data}${COLORS.reset}`;
+        console.log('DOM already loaded, initializing debug console immediately');
+        this.initializeConsoleUI();
+        Logger.consoleInitialized = true;
+      }
+    }
+  }
+  
+  // Log detailed system information
+  logSystemInfo(): void {
+    this.info('System Information', {
+      timestamp: new Date().toISOString(),
+      browser: navigator.userAgent,
+      platform: navigator.platform,
+      language: navigator.language,
+      cookiesEnabled: navigator.cookieEnabled,
+      screen: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        pixelRatio: window.devicePixelRatio,
+        colorDepth: window.screen.colorDepth
+      }
+    });
+    
+    // Log audio capabilities
+    this.info('Audio System Capabilities', {
+      audioContext: typeof AudioContext !== 'undefined' ? 'supported' : 'not supported',
+      webAudio: typeof AudioContext !== 'undefined' || typeof (window as any).webkitAudioContext !== 'undefined',
+      sampleRate: typeof AudioContext !== 'undefined' ? new AudioContext().sampleRate : 'unknown',
+      audioWorklet: typeof AudioContext !== 'undefined' && 'audioWorklet' in AudioContext.prototype ? 'supported' : 'not supported'
+    });
+    
+    // Log MIDI capabilities
+    this.info('MIDI System Capabilities', {
+      midiAccess: typeof navigator.requestMIDIAccess !== 'undefined' ? 'supported' : 'not supported'
+    });
+    
+    // Log performance metrics
+    try {
+      this.info('Performance Metrics', {
+        memory: (performance as any).memory ? {
+          jsHeapSizeLimit: Math.round((performance as any).memory.jsHeapSizeLimit / (1024 * 1024)) + ' MB',
+          totalJSHeapSize: Math.round((performance as any).memory.totalJSHeapSize / (1024 * 1024)) + ' MB',
+          usedJSHeapSize: Math.round((performance as any).memory.usedJSHeapSize / (1024 * 1024)) + ' MB'
+        } : 'not available',
+        navigation: performance.getEntriesByType('navigation').length > 0 ? 
+          performance.getEntriesByType('navigation')[0] : 'not available'
+      });
+    } catch (e) {
+      this.warn('Could not access performance metrics', e);
+    }
+    
+    // Log different types of messages to test all log levels
+    this.debug('Debug message test');
+    this.info('Info message test');
+    this.warn('Warning message test');
+    this.error('Error message test');
+    this.success('Success message test');
+  }
+  
+  // Initialize the debug console UI
+  private initializeConsoleUI(): void {
+    if (typeof document === 'undefined') return;
+    
+    console.log('Starting debug console UI initialization');
+    
+    // Find the debug console container
+    const container = document.getElementById(DEBUG_CONSOLE_CONTAINER_ID);
+    if (!container) {
+      console.error(`Debug console container with ID ${DEBUG_CONSOLE_CONTAINER_ID} not found!`);
+      return;
+    }
+    
+    console.log('Debug console container found, setting up UI');
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // Make sure the container is visible
+    container.style.display = 'flex';
+    container.style.opacity = '1';
+    container.style.visibility = 'visible';
+    container.style.zIndex = '99999';
+    
+    // Create the debug console elements
+    const consoleHeader = document.createElement('div');
+    consoleHeader.className = 'debug-console-header';
+    
+    // Create header with title and controls
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = 'Debug Console';
+    
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'debug-console-controls';
+    
+    // Add minimize and close buttons
+    const minimizeBtn = document.createElement('button');
+    minimizeBtn.innerHTML = '&#9776;'; // Hamburger icon
+    minimizeBtn.className = 'debug-console-btn';
+    minimizeBtn.title = 'Toggle console';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;'; // X icon
+    closeBtn.className = 'debug-console-btn';
+    closeBtn.title = 'Close console';
+    
+    controlsDiv.appendChild(minimizeBtn);
+    controlsDiv.appendChild(closeBtn);
+    
+    consoleHeader.appendChild(titleSpan);
+    consoleHeader.appendChild(controlsDiv);
+    
+    // Create status indicators section
+    const statusSection = document.createElement('div');
+    statusSection.className = 'debug-console-status';
+    
+    // Add status indicators
+    const createStatusIndicator = (label: string, value: string, color: string) => {
+      const indicator = document.createElement('div');
+      indicator.className = 'status-indicator';
+      
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'status-label';
+      labelSpan.textContent = label + ':';
+      
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'status-value';
+      valueSpan.textContent = value;
+      valueSpan.style.color = color;
+      
+      indicator.appendChild(labelSpan);
+      indicator.appendChild(valueSpan);
+      
+      return indicator;
+    };
+    
+    statusSection.appendChild(createStatusIndicator('PLAYING', 'NO', '#ff3333'));
+    statusSection.appendChild(createStatusIndicator('NOTE INDEX', '0', '#00ff00'));
+    statusSection.appendChild(createStatusIndicator('AUDIO CTX', 'running', '#00ff00'));
+    statusSection.appendChild(createStatusIndicator('ACTIVE NOTES', '0', '#ff9900'));
+    statusSection.appendChild(createStatusIndicator('SOUND', 'default', '#ff66ff'));
+    
+    // Create log content area
+    const consoleContent = document.createElement('div');
+    consoleContent.className = 'debug-console-content';
+    consoleContent.id = 'debug-console-content';
+    
+    // Create event log section with header
+    const eventLogHeader = document.createElement('div');
+    eventLogHeader.className = 'event-log-header';
+    
+    const eventLogLabel = document.createElement('span');
+    eventLogLabel.textContent = 'EVENT LOG';
+    eventLogLabel.className = 'event-log-label';
+    
+    const entriesCount = document.createElement('span');
+    entriesCount.textContent = '0 entries';
+    entriesCount.className = 'entries-count';
+    entriesCount.id = 'log-entries-count';
+    
+    eventLogHeader.appendChild(eventLogLabel);
+    eventLogHeader.appendChild(entriesCount);
+    
+    // Create log entries container
+    const logEntries = document.createElement('div');
+    logEntries.className = 'log-entries';
+    logEntries.id = 'log-entries';
+    
+    // Add initial message
+    const initialEntry = document.createElement('div');
+    initialEntry.className = 'debug-log-entry info';
+    initialEntry.textContent = `[${new Date().toLocaleTimeString()}] [System] Debug console initialized`;
+    logEntries.appendChild(initialEntry);
+    
+    // Add clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'clear-log-btn';
+    clearBtn.textContent = 'Clear Log';
+    clearBtn.onclick = () => {
+      logEntries.innerHTML = '';
+      this.logCount = 0;
+      this.updateEntriesCount();
+    };
+    
+    // Assemble the console
+    container.appendChild(consoleHeader);
+    container.appendChild(statusSection);
+    container.appendChild(eventLogHeader);
+    container.appendChild(logEntries);
+    container.appendChild(clearBtn);
+    
+    // Add event listeners for controls
+    minimizeBtn.addEventListener('click', () => {
+      if (logEntries.style.display === 'none') {
+        logEntries.style.display = 'block';
+        statusSection.style.display = 'grid';
+        eventLogHeader.style.display = 'flex';
+        clearBtn.style.display = 'block';
+        container.style.height = '100%';
+      } else {
+        logEntries.style.display = 'none';
+        statusSection.style.display = 'none';
+        eventLogHeader.style.display = 'none';
+        clearBtn.style.display = 'none';
+        container.style.height = 'auto';
+      }
+    });
+    
+    closeBtn.addEventListener('click', () => {
+      container.style.display = 'none';
+    });
+    
+    console.log('Debug console UI initialized successfully');
+  }
+  
+  // Update the entries count in the UI
+  private updateEntriesCount(): void {
+    const entriesCountElement = document.getElementById('log-entries-count');
+    if (entriesCountElement) {
+      entriesCountElement.textContent = `${this.logCount} entries`;
+    }
+  }
+  
+  // Add a log entry to the debug console
+  private addLogToConsole(level: string, message: string, data?: any): void {
+    if (typeof document === 'undefined') return;
+    
+    // Filter out repetitive messages
+    if (shouldFilter(message)) return;
+    
+    const logEntries = document.getElementById('log-entries');
+    if (!logEntries) return;
+    
+    // Create log entry element
+    const entry = document.createElement('div');
+    entry.className = `debug-log-entry ${level}`;
+    
+    // Format timestamp
+    const timestamp = new Date().toLocaleTimeString('en-US', { 
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    
+    // Format log message
+    let icon = LOG_ICONS[level as keyof typeof LOG_ICONS] || '';
+    let logMessage = `[${timestamp}] ${icon ? icon + ' ' : ''}${level.toUpperCase()} [${this.context}] ${message}`;
+    
+    // Add data if provided
+    if (data !== undefined) {
+      try {
+        if (typeof data === 'object') {
+          const dataStr = JSON.stringify(data, null, 2);
+          logMessage += `\n${dataStr}`;
+        } else {
+          logMessage += ` ${data}`;
+        }
+      } catch (e) {
+        logMessage += ' [Non-serializable data]';
       }
     }
     
-    return formattedMsg;
+    entry.textContent = logMessage;
+    
+    // Add to console
+    logEntries.appendChild(entry);
+    
+    // Increment log count
+    this.logCount++;
+    this.updateEntriesCount();
+    
+    // Scroll to bottom
+    logEntries.scrollTop = logEntries.scrollHeight;
+    
+    // Force the debug console to be visible
+    const container = document.getElementById(DEBUG_CONSOLE_CONTAINER_ID);
+    if (container) {
+      container.style.display = 'flex';
+      container.style.opacity = '1';
+      container.style.visibility = 'visible';
+      container.style.zIndex = '99999';
+    }
   }
   
+  // Debug level log
   debug(message: string, data?: any): void {
-    if (LOG_LEVEL <= LogLevel.DEBUG) {
-      const formattedMessage = this.formatMessage(
-        'DEBUG', 
-        LOG_ICONS.debug, 
-        `${COLORS.dim}${message}${COLORS.reset}`, 
-        data
-      );
-      console.debug(formattedMessage);
+    if (LOG_LEVEL > LogLevel.DEBUG) return;
+    
+    // Filter out repetitive messages
+    if (shouldFilter(message)) {
+      // Still log to console but don't add to UI
+      const icon = LOG_ICONS.debug;
+      const formattedMessage = `${icon} DEBUG [${this.context}] ${message}`;
+      console.debug(formattedMessage, data !== undefined ? data : '');
       
-      // Send to remote logger
       if (ENABLE_REMOTE_LOGGING) {
         loggerClient.log('debug', this.context, message, data);
       }
+      
+      return;
     }
+    
+    const icon = LOG_ICONS.debug;
+    const formattedMessage = `${icon} DEBUG [${this.context}] ${message}`;
+    
+    console.debug(formattedMessage, data !== undefined ? data : '');
+    
+    if (ENABLE_REMOTE_LOGGING) {
+      loggerClient.log('debug', this.context, message, data);
+    }
+    
+    this.addLogToConsole('debug', message, data);
   }
   
+  // Info level log
   info(message: string, data?: any): void {
-    if (LOG_LEVEL <= LogLevel.INFO) {
-      const formattedMessage = this.formatMessage(
-        'INFO', 
-        LOG_ICONS.info, 
-        `${COLORS.fg.blue}${message}${COLORS.reset}`, 
-        data
-      );
-      console.info(formattedMessage);
+    if (LOG_LEVEL > LogLevel.INFO) return;
+    
+    // Filter out repetitive messages
+    if (shouldFilter(message)) {
+      // Still log to console but don't add to UI
+      const icon = LOG_ICONS.info;
+      const formattedMessage = `${icon} INFO [${this.context}] ${message}`;
+      console.info(formattedMessage, data !== undefined ? data : '');
       
-      // Send to remote logger
       if (ENABLE_REMOTE_LOGGING) {
         loggerClient.log('info', this.context, message, data);
       }
+      
+      return;
     }
+    
+    const icon = LOG_ICONS.info;
+    const formattedMessage = `${icon} INFO [${this.context}] ${message}`;
+    
+    console.info(formattedMessage, data !== undefined ? data : '');
+    
+    if (ENABLE_REMOTE_LOGGING) {
+      loggerClient.log('info', this.context, message, data);
+    }
+    
+    this.addLogToConsole('info', message, data);
   }
   
+  // Warning level log
   warn(message: string, data?: any): void {
-    if (LOG_LEVEL <= LogLevel.WARN) {
-      const formattedMessage = this.formatMessage(
-        'WARN', 
-        LOG_ICONS.warn, 
-        `${COLORS.fg.yellow}${message}${COLORS.reset}`, 
-        data
-      );
-      console.warn(formattedMessage);
-      
-      // Send to remote logger
-      if (ENABLE_REMOTE_LOGGING) {
-        loggerClient.log('warn', this.context, message, data);
-      }
+    if (LOG_LEVEL > LogLevel.WARN) return;
+    
+    const icon = LOG_ICONS.warn;
+    const formattedMessage = `${icon} WARN [${this.context}] ${message}`;
+    
+    console.warn(formattedMessage, data !== undefined ? data : '');
+    
+    if (ENABLE_REMOTE_LOGGING) {
+      loggerClient.log('warn', this.context, message, data);
     }
+    
+    this.addLogToConsole('warn', message, data);
   }
   
-  error(message: string, error?: any): void {
-    if (LOG_LEVEL <= LogLevel.ERROR) {
-      const formattedMessage = this.formatMessage(
-        'ERROR', 
-        LOG_ICONS.error, 
-        `${COLORS.fg.red}${message}${COLORS.reset}`, 
-        error
-      );
-      console.error(formattedMessage);
-      
-      // Send to remote logger
-      if (ENABLE_REMOTE_LOGGING) {
-        loggerClient.log('error', this.context, message, error instanceof Error ? {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        } : error);
-      }
-      
-      // If it's an Error object, log the stack trace
-      if (error instanceof Error) {
-        console.error(`${COLORS.fg.red}${error.stack}${COLORS.reset}`);
-      }
+  // Error level log
+  error(message: string, data?: any): void {
+    if (LOG_LEVEL > LogLevel.ERROR) return;
+    
+    const icon = LOG_ICONS.error;
+    const formattedMessage = `${icon} ERROR [${this.context}] ${message}`;
+    
+    console.error(formattedMessage, data !== undefined ? data : '');
+    
+    if (ENABLE_REMOTE_LOGGING) {
+      loggerClient.log('error', this.context, message, data);
     }
+    
+    this.addLogToConsole('error', message, data);
   }
   
+  // Success level log
   success(message: string, data?: any): void {
-    if (LOG_LEVEL <= LogLevel.SUCCESS) {
-      const formattedMessage = this.formatMessage(
-        'SUCCESS', 
-        LOG_ICONS.success, 
-        `${COLORS.fg.green}${message}${COLORS.reset}`, 
-        data
-      );
-      console.log(formattedMessage);
-      
-      // Send to remote logger
-      if (ENABLE_REMOTE_LOGGING) {
-        loggerClient.log('success', this.context, message, data);
-      }
+    if (LOG_LEVEL > LogLevel.SUCCESS) return;
+    
+    const icon = LOG_ICONS.success;
+    const formattedMessage = `${icon} SUCCESS [${this.context}] ${message}`;
+    
+    console.log(formattedMessage, data !== undefined ? data : '');
+    
+    if (ENABLE_REMOTE_LOGGING) {
+      loggerClient.log('success', this.context, message, data);
     }
+    
+    this.addLogToConsole('success', message, data);
   }
   
-  // Music specific logging
-  music(message: string, data?: any): void {
-    if (LOG_LEVEL <= LogLevel.INFO) {
-      const formattedMessage = this.formatMessage(
-        'MUSIC', 
-        LOG_ICONS.music, 
-        `${COLORS.fg.magenta}${message}${COLORS.reset}`, 
-        data
-      );
-      console.info(formattedMessage);
-      
-      // Send to remote logger
-      if (ENABLE_REMOTE_LOGGING) {
-        loggerClient.log('music', this.context, message, data);
-      }
-    }
-  }
-  
-  // Piano specific logging
+  // Piano-specific log
   piano(message: string, data?: any): void {
-    if (LOG_LEVEL <= LogLevel.INFO) {
-      const formattedMessage = this.formatMessage(
-        'PIANO', 
-        LOG_ICONS.piano, 
-        `${COLORS.fg.cyan}${message}${COLORS.reset}`, 
-        data
-      );
-      console.info(formattedMessage);
-      
-      // Send to remote logger
-      if (ENABLE_REMOTE_LOGGING) {
-        loggerClient.log('piano', this.context, message, data);
-      }
+    const icon = LOG_ICONS.piano;
+    const formattedMessage = `${icon} PIANO [${this.context}] ${message}`;
+    
+    console.log(formattedMessage, data !== undefined ? data : '');
+    
+    if (ENABLE_REMOTE_LOGGING) {
+      loggerClient.log('piano', this.context, message, data);
     }
+    
+    this.addLogToConsole('piano', message, data);
   }
   
-  // API specific logging
-  api(message: string, data?: any): void {
-    if (LOG_LEVEL <= LogLevel.INFO) {
-      const formattedMessage = this.formatMessage(
-        'API', 
-        LOG_ICONS.api, 
-        `${COLORS.fg.yellow}${message}${COLORS.reset}`, 
-        data
-      );
-      console.info(formattedMessage);
-      
-      // Send to remote logger
-      if (ENABLE_REMOTE_LOGGING) {
-        loggerClient.log('api', this.context, message, data);
-      }
+  // Music-specific log
+  music(message: string, data?: any): void {
+    const icon = LOG_ICONS.music;
+    const formattedMessage = `${icon} MUSIC [${this.context}] ${message}`;
+    
+    console.log(formattedMessage, data !== undefined ? data : '');
+    
+    if (ENABLE_REMOTE_LOGGING) {
+      loggerClient.log('music', this.context, message, data);
     }
+    
+    this.addLogToConsole('music', message, data);
   }
   
-  // Performance measurement utilities
-  perfStart(label: string): void {
+  // Performance measurement start
+  startPerf(label: string): void {
     this.perfMarks[label] = performance.now();
-    if (LOG_LEVEL <= LogLevel.DEBUG) {
-      const formattedMessage = this.formatMessage(
-        'PERF', 
-        LOG_ICONS.performance, 
-        `${COLORS.fg.blue}⏱️ Started [${label}]${COLORS.reset}`
-      );
-      console.debug(formattedMessage);
-    }
   }
   
-  perfEnd(label: string): void {
-    if (this.perfMarks[label]) {
-      const duration = performance.now() - this.perfMarks[label];
-      const formattedMessage = this.formatMessage(
-        'PERF', 
-        LOG_ICONS.performance, 
-        `${COLORS.fg.blue}⏱️ Completed [${label}] in ${duration.toFixed(2)}ms${COLORS.reset}`
-      );
-      console.debug(formattedMessage);
-      
-      // Send to remote logger
-      if (ENABLE_REMOTE_LOGGING) {
-        loggerClient.log('performance', this.context, `Completed ${label}`, { 
-          duration: duration.toFixed(2), 
-          unit: 'ms' 
-        });
-      }
-      
-      // Clean up performance mark
-      delete this.perfMarks[label];
-    } else {
-      this.warn(`Attempted to end performance measurement [${label}] without starting it first`);
+  // Performance measurement end
+  endPerf(label: string, logLevel: 'debug' | 'info' | 'log' = 'log'): void {
+    if (!this.perfMarks[label]) {
+      this.warn(`No performance mark found for: ${label}`);
+      return;
     }
-  }
-  
-  // Factory method to create a new logger with a different context
-  createLogger(context: string): Logger {
-    return new Logger(context);
+    
+    const duration = (performance.now() - this.perfMarks[label]).toFixed(2);
+    const perfData = { duration, unit: 'ms' };
+    
+    switch (logLevel) {
+      case 'debug':
+        this.debug(`Completed ${label}`, perfData);
+        break;
+      case 'info':
+        this.info(`Completed ${label}`, perfData);
+        break;
+      default:
+        console.log(`${LOG_ICONS.performance} [${this.context}] Completed ${label}`, perfData);
+        this.addLogToConsole('performance', `Completed ${label}`, perfData);
+    }
+    
+    // Clean up the mark
+    delete this.perfMarks[label];
   }
 }
 
