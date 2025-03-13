@@ -13,6 +13,8 @@ dist
 dist-ssr
 *.local
 
+/Users/luke/cursor-projs/piano/src/assets/sounds/*
+
 # Editor directories and files
 .vscode/*
 \!.vscode/extensions.json
